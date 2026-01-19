@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estatísticas - FocusGoals</title>
+  <link rel="stylesheet" href="stats.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📊 Estatísticas FocusGoals</h1>
+      <button class="btn-close" id="btnClose">✕</button>
+    </header>
+
+    <div class="summary-cards">
+      <div class="card">
+        <div class="card-icon">🍅</div>
+        <div class="card-content">
+          <div class="card-value" id="totalPomodoros">0</div>
+          <div class="card-label">Total de Pomodoros</div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-icon">⏱️</div>
+        <div class="card-content">
+          <div class="card-value" id="totalHours">0h</div>
+          <div class="card-label">Horas de Foco</div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-icon">🔥</div>
+        <div class="card-content">
+          <div class="card-value" id="currentStreak">0</div>
+          <div class="card-label">Dias de Sequência</div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-icon">📈</div>
+        <div class="card-content">
+          <div class="card-value" id="avgPerDay">0</div>
+          <div class="card-label">Média por Dia</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Progresso de Hoje</h2>
+      <div class="today-progress">
+        <div class="progress-item">
+          <div class="progress-header">
+            <span>🍅 Pomodoros</span>
+            <span class="progress-value" id="todayPomodoros">0/6</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="todayPomodorosBar"></div>
+          </div>
+        </div>
+        
+        <div class="progress-item">
+          <div class="progress-header">
+            <span>⏱️ Tempo de Foco</span>
+            <span class="progress-value" id="todayFocusTime">0h/3h</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="todayFocusBar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Histórico (Últimos 7 Dias)</h2>
+      <div class="chart-container">
+        <canvas id="historyChart"></canvas>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background: linear-gradient(135deg, #667eea, #764ba2);"></div>
+          <span>Pomodoros completados</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Histórico Detalhado</h2>
+      <div class="history-table" id="historyTable">
+        <div class="table-empty">Nenhum histórico disponível ainda.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Metas</h2>
+      <div class="goals-info">
+        <div class="goal-card">
+          <div class="goal-icon">🎯</div>
+          <div class="goal-content">
+            <div class="goal-title">Meta Diária de Pomodoros</div>
+            <div class="goal-value" id="goalPomodoros">6 pomodoros</div>
+          </div>
+        </div>
+        
+        <div class="goal-card">
+          <div class="goal-icon">⏰</div>
+          <div class="goal-content">
+            <div class="goal-title">Meta Diária de Foco</div>
+            <div class="goal-value" id="goalFocusTime">3 horas</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-export" id="btnExport">💾 Exportar Dados</button>
+      <button class="btn-settings" id="btnSettings">⚙️ Configurações</button>
+    </div>
+  </div>
+
+  <script src="stats.js"></script>
+</body>
+</html>
