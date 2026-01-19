@@ -34,7 +34,7 @@ async function loadData() {
   timerState = data.timerState || {
     isRunning: false,
     isPaused: false,
-    mode: 'focus', // 'focus' ou 'break'
+    mode: 'focus',
     timeLeft: 25 * 60,
     startTime: null
   };
@@ -43,7 +43,7 @@ async function loadData() {
     focusDuration: 25,
     breakDuration: 5,
     dailyPomodoroGoal: 6,
-    dailyFocusGoal: 3, // horas
+    dailyFocusGoal: 3,
     blockedSites: [
       'facebook.com',
       'instagram.com',
@@ -59,7 +59,7 @@ async function loadData() {
     today: {
       date: new Date().toDateString(),
       pomodoros: 0,
-      focusTime: 0 // em segundos
+      focusTime: 0
     },
     week: {
       pomodoros: 0
@@ -177,16 +177,11 @@ function setupEventListeners() {
     chrome.tabs.create({ url: 'stats.html' });
   });
   
-  // Listener para mudanças no storage (sincronizar com background)
-  chrome.storage.onChanged.addListener((changes) => {
-    if (changes.timerState) {
-      timerState = changes.timerState.newValue;
-      updateUI();
-    }
-    if (changes.stats) {
-      stats = changes.stats.newValue;
-      updateUI();
-    }
+  // Listener para mudanças no storage (sincronizar com background E configurações)
+  chrome.storage.onChanged.addListener(async (changes) => {
+    // Recarregar TUDO quando qualquer coisa mudar
+    await loadData();
+    updateUI();
   });
 }
 
@@ -244,13 +239,20 @@ async function handleReset() {
   updateUI();
 }
 
-// Atualizar UI a cada segundo
+// Atualizar UI a cada segundo E recarregar dados periodicamente
 function startUIUpdateInterval() {
+  // Atualizar display a cada segundo
   setInterval(() => {
     if (timerState.isRunning) {
       updateTimerDisplay();
     }
   }, 1000);
+  
+  // Recarregar dados do storage a cada 2 segundos (para pegar mudanças de configurações)
+  setInterval(async () => {
+    await loadData();
+    updateUI();
+  }, 2000);
 }
 
 // Iniciar

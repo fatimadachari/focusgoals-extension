@@ -187,24 +187,47 @@ function setupEventListeners() {
 
 // Salvar configurações
 async function handleSave() {
-  // Atualizar settings com valores dos inputs
-  settings.focusDuration = parseInt(focusDuration.value);
-  settings.breakDuration = parseInt(breakDuration.value);
+  // Pegar valores novos
+  const newFocusDuration = parseInt(focusDuration.value);
+  const newBreakDuration = parseInt(breakDuration.value);
+  
+  // Atualizar settings
+  settings.focusDuration = newFocusDuration;
+  settings.breakDuration = newBreakDuration;
   settings.dailyPomodoroGoal = parseInt(dailyPomodoroGoal.value);
   settings.dailyFocusGoal = parseInt(dailyFocusGoal.value);
   settings.soundEnabled = soundEnabled.checked;
   
-  // Salvar no storage
+  // Salvar settings no storage
   await chrome.storage.local.set({ settings });
+  
+  // Verificar estado do timer
+  const timerData = await chrome.storage.local.get(['timerState']);
+  let timerState = timerData.timerState || {
+    isRunning: false,
+    isPaused: false,
+    mode: 'focus',
+    timeLeft: 25 * 60,
+    startTime: null
+  };
+  
+  // Se timer não está rodando E não está pausado, atualizar timeLeft
+  if (!timerState.isRunning && !timerState.isPaused) {
+    if (timerState.mode === 'focus') {
+      timerState.timeLeft = newFocusDuration * 60;
+    } else if (timerState.mode === 'break') {
+      timerState.timeLeft = newBreakDuration * 60;
+    }
+    
+    // Salvar timer atualizado
+    await chrome.storage.local.set({ timerState });
+  }
   
   // Mostrar mensagem de sucesso
   saveMessage.classList.remove('hidden');
   setTimeout(() => {
     saveMessage.classList.add('hidden');
   }, 3000);
-  
-  // Notificar background para recarregar
-  chrome.runtime.sendMessage({ action: 'settingsUpdated' });
 }
 
 // Restaurar padrões
@@ -215,6 +238,21 @@ async function handleReset() {
   
   settings = { ...defaultSettings };
   await chrome.storage.local.set({ settings });
+  
+  // Resetar timer também se não estiver rodando
+  const timerData = await chrome.storage.local.get(['timerState']);
+  let timerState = timerData.timerState || {};
+  
+  if (!timerState.isRunning) {
+    timerState = {
+      isRunning: false,
+      isPaused: false,
+      mode: 'focus',
+      timeLeft: defaultSettings.focusDuration * 60,
+      startTime: null
+    };
+    await chrome.storage.local.set({ timerState });
+  }
   
   updateUI();
   
