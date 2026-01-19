@@ -1,23 +1,29 @@
+// Flag para evitar loops de redirecionamento
+let isRedirecting = false;
+
 // Verificar se página deve ser bloqueada
 async function checkBlockStatus() {
   try {
+    // Se estamos na página de bloqueio ou já redirecionando, não fazer nada
+    if (window.location.href.includes('chrome-extension://') || isRedirecting) {
+      return;
+    }
+    
     const data = await chrome.storage.local.get(['timerState', 'settings', 'emergencyMode']);
     
     const timerState = data.timerState || {};
     const settings = data.settings || { blockedSites: [] };
     const emergencyMode = data.emergencyMode || { active: false };
     
-    // Não bloquear se:
-    // - Timer não está rodando
-    // - Está em modo pausa
-    // - Modo emergência ativo
-    if (!timerState.isRunning || timerState.mode !== 'focus') {
-      removeFocusIndicator();
+    // Se modo emergência está ativo, mostrar indicador
+    if (emergencyMode.active && emergencyMode.endTime && Date.now() < emergencyMode.endTime) {
+      showEmergencyIndicator(emergencyMode.endTime);
       return;
     }
     
-    if (emergencyMode.active && Date.now() < emergencyMode.endTime) {
-      showEmergencyIndicator(emergencyMode.endTime);
+    // Não bloquear se timer não está rodando ou está em pausa
+    if (!timerState.isRunning || timerState.mode !== 'focus') {
+      removeFocusIndicator();
       return;
     }
     
@@ -28,20 +34,28 @@ async function checkBlockStatus() {
     });
     
     if (isBlocked) {
+      // Marcar que estamos redirecionando
+      isRedirecting = true;
+      
+      // Salvar URL original antes de redirecionar
+      await chrome.storage.local.set({ 
+        blockedUrl: window.location.href 
+      });
+      
       // Redirecionar para página de bloqueio
-      window.location.href = chrome.runtime.getURL('blocked.html');
+      window.location.replace(chrome.runtime.getURL('blocked.html'));
     } else {
       // Mostrar indicador de foco se não estiver bloqueado
       showFocusIndicator();
     }
   } catch (error) {
     console.error('Erro ao verificar bloqueio:', error);
+    isRedirecting = false;
   }
 }
 
 // Mostrar indicador de modo foco
 function showFocusIndicator() {
-  // Remover indicador existente
   removeFocusIndicator();
   
   const indicator = document.createElement('div');
@@ -167,12 +181,12 @@ function showEmergencyIndicator(endTime) {
   document.body.appendChild(indicator);
   
   // Atualizar timer a cada segundo
-  const interval = setInterval(() => {
+  const interval = setInterval(async () => {
     const timeLeft = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
     
     if (timeLeft === 0) {
       clearInterval(interval);
-      checkBlockStatus();
+      removeFocusIndicator();
       return;
     }
     
@@ -198,6 +212,7 @@ function removeFocusIndicator() {
 // Listener de mudanças no storage
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.timerState || changes.emergencyMode) {
+    isRedirecting = false;
     checkBlockStatus();
   }
 });
@@ -209,5 +224,5 @@ if (document.readyState === 'loading') {
   checkBlockStatus();
 }
 
-// Verificar periodicamente (caso timer mude)
-setInterval(checkBlockStatus, 5000);
+// Verificar periodicamente
+setInterval(checkBlockStatus, 3000);

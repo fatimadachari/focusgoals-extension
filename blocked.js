@@ -28,8 +28,7 @@ const quotes = [
 let timerState = null;
 let settings = null;
 let stats = null;
-let emergencyMode = false;
-let emergencyEndTime = null;
+let blockedUrl = '';
 
 // Inicialização
 async function init() {
@@ -42,23 +41,12 @@ async function init() {
 
 // Carregar dados
 async function loadData() {
-  const data = await chrome.storage.local.get(['timerState', 'settings', 'stats', 'emergencyMode']);
+  const data = await chrome.storage.local.get(['timerState', 'settings', 'stats', 'blockedUrl']);
   
   timerState = data.timerState || { timeLeft: 0 };
   settings = data.settings || { dailyPomodoroGoal: 6, dailyFocusGoal: 3 };
   stats = data.stats || { today: { pomodoros: 0, focusTime: 0 } };
-  
-  // Verificar modo emergência
-  if (data.emergencyMode && data.emergencyMode.active) {
-    emergencyMode = true;
-    emergencyEndTime = data.emergencyMode.endTime;
-    
-    // Verificar se ainda está ativo
-    if (Date.now() >= emergencyEndTime) {
-      emergencyMode = false;
-      await chrome.storage.local.remove('emergencyMode');
-    }
-  }
+  blockedUrl = data.blockedUrl || '';
 }
 
 // Atualizar interface
@@ -76,17 +64,6 @@ function updateUI() {
   const focusPercent = Math.min((focusHours / settings.dailyFocusGoal) * 100, 100);
   focusTimeTotal.textContent = `${focusHours}h/${settings.dailyFocusGoal}h`;
   focusTimeBar.style.width = `${focusPercent}%`;
-  
-  // Modo emergência
-  if (emergencyMode) {
-    btnEmergency.disabled = true;
-    btnEmergency.textContent = '⏳ Emergência Ativa';
-    emergencyTimer.classList.remove('hidden');
-  } else {
-    btnEmergency.disabled = false;
-    btnEmergency.textContent = '🆘 Emergência (5min)';
-    emergencyTimer.classList.add('hidden');
-  }
 }
 
 // Atualizar display de tempo
@@ -101,18 +78,6 @@ function updateTimeDisplay() {
   const minutes = Math.floor(timeToShow / 60);
   const seconds = timeToShow % 60;
   timeRemaining.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  
-  // Atualizar timer de emergência
-  if (emergencyMode && emergencyEndTime) {
-    const emergencyLeft = Math.max(0, Math.floor((emergencyEndTime - Date.now()) / 1000));
-    const eMinutes = Math.floor(emergencyLeft / 60);
-    const eSeconds = emergencyLeft % 60;
-    emergencyTimeLeft.textContent = `${String(eMinutes).padStart(2, '0')}:${String(eSeconds).padStart(2, '0')}`;
-    
-    if (emergencyLeft === 0) {
-      window.close();
-    }
-  }
 }
 
 // Mostrar frase aleatória
@@ -123,40 +88,74 @@ function showRandomQuote() {
 
 // Event Listeners
 function setupEventListeners() {
-  btnBack.addEventListener('click', () => {
-    window.history.back();
-  });
-  
+  btnBack.addEventListener('click', handleBack);
   btnEmergency.addEventListener('click', handleEmergency);
   
   // Listener de mudanças no storage
   chrome.storage.onChanged.addListener((changes) => {
-    if (changes.timerState || changes.stats || changes.emergencyMode) {
+    if (changes.timerState || changes.stats) {
       loadData().then(() => updateUI());
     }
   });
 }
 
-// Ativar modo emergência
+// Voltar
+async function handleBack() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  if (tabs.length > 0) {
+    const allTabs = await chrome.tabs.query({ currentWindow: true });
+    if (allTabs.length > 1) {
+      chrome.tabs.remove(tabs[0].id);
+    } else {
+      chrome.tabs.update(tabs[0].id, { url: 'chrome://newtab' });
+    }
+  }
+}
+
+// Ativar modo emergência - PAUSAR TIMER
 async function handleEmergency() {
-  if (!confirm('Modo emergência libera acesso por 5 minutos. Usar apenas em caso de necessidade real. Confirmar?')) {
+  if (!confirm('Modo emergência pausa o timer por 5 minutos. Usar apenas em caso de necessidade real. Confirmar?')) {
     return;
   }
   
-  emergencyMode = true;
-  emergencyEndTime = Date.now() + (5 * 60 * 1000); // 5 minutos
+  // Calcular tempo restante do timer
+  let timeLeft = timerState.timeLeft;
+  if (timerState.isRunning && timerState.startTime) {
+    const elapsed = Math.floor((Date.now() - timerState.startTime) / 1000);
+    timeLeft = Math.max(0, timerState.timeLeft - elapsed);
+  }
+  
+  // Pausar timer
+  timerState.isRunning = false;
+  timerState.isPaused = true;
+  timerState.timeLeft = timeLeft;
+  timerState.startTime = null;
+  
+  await chrome.storage.local.set({ timerState });
+  
+  // Configurar emergência (5 minutos)
+  const emergencyEndTime = Date.now() + (5 * 60 * 1000);
   
   await chrome.storage.local.set({
     emergencyMode: {
       active: true,
-      endTime: emergencyEndTime
+      endTime: emergencyEndTime,
+      pausedTimerState: { ...timerState }
     }
   });
   
-  updateUI();
+  // Criar alarme para reativar timer após 5 minutos
+  chrome.alarms.create('emergencyEnd', {
+    when: emergencyEndTime
+  });
   
-  // Fechar página de bloqueio e permitir navegação
-  window.close();
+  // Redirecionar para URL bloqueada
+  if (blockedUrl) {
+    window.location.href = blockedUrl;
+  } else {
+    window.close();
+  }
 }
 
 // Atualizar UI periodicamente

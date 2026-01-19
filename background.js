@@ -84,6 +84,8 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await handleTimerTick();
   } else if (alarm.name === 'dailyReset') {
     await handleDailyReset();
+  } else if (alarm.name === 'emergencyEnd') {
+    await handleEmergencyEnd();
   }
 });
 
@@ -155,6 +157,37 @@ async function handleTimerComplete() {
   await chrome.storage.local.set({ timerState });
 }
 
+// Fim da emergência - REATIVAR TIMER
+async function handleEmergencyEnd() {
+  const data = await chrome.storage.local.get(['emergencyMode', 'timerState']);
+  
+  if (data.emergencyMode && data.emergencyMode.active) {
+    // Restaurar estado do timer pausado
+    const pausedState = data.emergencyMode.pausedTimerState;
+    
+    if (pausedState) {
+      // Reativar timer do ponto onde parou
+      timerState = {
+        ...pausedState,
+        isRunning: true,
+        isPaused: false,
+        startTime: Date.now()
+      };
+      
+      await chrome.storage.local.set({ timerState });
+    }
+    
+    // Remover modo emergência
+    await chrome.storage.local.remove('emergencyMode');
+    
+    // Notificação
+    await showNotification(
+      'Emergência Finalizada ⚠️',
+      'Timer reativado! Foco voltou.'
+    );
+  }
+}
+
 // Mostrar notificação
 async function showNotification(title, message) {
   await chrome.notifications.create({
@@ -168,7 +201,6 @@ async function showNotification(title, message) {
 
 // Tocar som (abrir página invisível com áudio)
 function playSound() {
-  // Usar API de áudio nativa do browser via offscreen document
   chrome.tabs.create({ url: 'notification-sound.html', active: false }, (tab) => {
     setTimeout(() => {
       chrome.tabs.remove(tab.id);
@@ -204,7 +236,7 @@ async function handleDailyReset() {
   
   // Reset semanal (domingo)
   const dayOfWeek = new Date().getDay();
-  if (dayOfWeek === 0) { // Domingo
+  if (dayOfWeek === 0) {
     stats.week.pomodoros = 0;
   }
   
@@ -236,18 +268,6 @@ function shouldBlockUrl(url) {
   }
 }
 
-// Listener de requisições web (bloqueio de sites)
-// chrome.webRequest.onBeforeRequest.addListener(
-//   (details) => {
-//     if (shouldBlockUrl(details.url)) {
-//       // Redirecionar para página de bloqueio
-//       return { redirectUrl: chrome.runtime.getURL('blocked.html') };
-//     }
-//   },
-//   { urls: ['<all_urls>'] },
-//   ['blocking']
-// );
-
 // Listener de mensagens do popup
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'syncTimer') {
@@ -261,24 +281,10 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   return true;
 });
 
-// Listener de tabs (verificar bloqueio ao navegar)
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'loading' && tab.url) {
-    await loadData();
-    
-    if (shouldBlockUrl(tab.url)) {
-      chrome.tabs.update(tabId, {
-        url: chrome.runtime.getURL('blocked.html')
-      });
-    }
-  }
-});
-
 // Atualizar ícone baseado no estado
 async function updateIcon() {
   await loadData();
   
-  let iconPath = 'icons/icon48.png';
   let badgeText = '';
   let badgeColor = '#667eea';
   
