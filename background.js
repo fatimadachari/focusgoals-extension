@@ -237,16 +237,16 @@ function shouldBlockUrl(url) {
 }
 
 // Listener de requisições web (bloqueio de sites)
-chrome.webRequest.onBeforeRequest.addListener(
-  (details) => {
-    if (shouldBlockUrl(details.url)) {
-      // Redirecionar para página de bloqueio
-      return { redirectUrl: chrome.runtime.getURL('blocked.html') };
-    }
-  },
-  { urls: ['<all_urls>'] },
-  ['blocking']
-);
+// chrome.webRequest.onBeforeRequest.addListener(
+//   (details) => {
+//     if (shouldBlockUrl(details.url)) {
+//       // Redirecionar para página de bloqueio
+//       return { redirectUrl: chrome.runtime.getURL('blocked.html') };
+//     }
+//   },
+//   { urls: ['<all_urls>'] },
+//   ['blocking']
+// );
 
 // Listener de mensagens do popup
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
