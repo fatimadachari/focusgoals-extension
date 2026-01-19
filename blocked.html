@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Site Bloqueado - FocusGoals</title>
+  <link rel="stylesheet" href="blocked.css">
+</head>
+<body>
+  <div class="container">
+    <div class="content">
+      <div class="icon">🚫</div>
+      <h1>Site Bloqueado</h1>
+      <p class="subtitle">Você está em uma sessão de foco!</p>
+      
+      <div class="timer-info">
+        <div class="time-remaining" id="timeRemaining">--:--</div>
+        <div class="time-label">restantes nesta sessão</div>
+      </div>
+      
+      <div class="progress-section">
+        <h3>Progresso de Hoje</h3>
+        <div class="progress-item">
+          <div class="progress-label">
+            <span>🍅 Pomodoros Completados</span>
+            <span class="progress-value" id="pomodorosCompleted">0/6</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="pomodorosBar"></div>
+          </div>
+        </div>
+        <div class="progress-item">
+          <div class="progress-label">
+            <span>⏱️ Tempo de Foco Total</span>
+            <span class="progress-value" id="focusTimeTotal">0h/3h</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="focusTimeBar"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="motivational-quote" id="quote">
+        "O sucesso é a soma de pequenos esforços repetidos dia após dia."
+      </div>
+      
+      <div class="actions">
+        <button class="btn-back" id="btnBack">← Voltar</button>
+        <button class="btn-emergency" id="btnEmergency">🆘 Emergência (5min)</button>
+      </div>
+      
+      <div class="emergency-timer hidden" id="emergencyTimer">
+        <p>⚠️ Modo emergência ativo</p>
+        <p>Acesso liberado por: <span id="emergencyTimeLeft">5:00</span></p>
+      </div>
+    </div>
+  </div>
+  
+  <script src="blocked.js"></script>
+</body>
+</html>
