@@ -130,9 +130,12 @@ async function handleTimerComplete() {
       playSound();
     }
     
-    // Mudar para modo break
+    // Mudar para modo break E INICIAR AUTOMATICAMENTE
     timerState.mode = 'break';
     timerState.timeLeft = settings.breakDuration * 60;
+    timerState.isRunning = true; // CONTINUAR RODANDO
+    timerState.isPaused = false;
+    timerState.startTime = Date.now(); // NOVO START TIME
   } else {
     // Terminou pausa
     await showNotification(
@@ -144,15 +147,13 @@ async function handleTimerComplete() {
       playSound();
     }
     
-    // Mudar para modo focus
+    // Mudar para modo focus mas NÃO iniciar automaticamente
     timerState.mode = 'focus';
     timerState.timeLeft = settings.focusDuration * 60;
+    timerState.isRunning = false;
+    timerState.isPaused = false;
+    timerState.startTime = null;
   }
-  
-  // Parar timer automaticamente
-  timerState.isRunning = false;
-  timerState.isPaused = false;
-  timerState.startTime = null;
   
   await chrome.storage.local.set({ timerState });
 }
