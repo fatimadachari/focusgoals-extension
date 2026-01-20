@@ -1,5 +1,6 @@
 // Flag para evitar loops de redirecionamento
 let isRedirecting = false;
+let currentIndicatorType = null; // 'focus', 'emergency' ou null
 
 // Verificar se página deve ser bloqueada
 async function checkBlockStatus() {
@@ -56,7 +57,15 @@ async function checkBlockStatus() {
 
 // Mostrar indicador de modo foco
 function showFocusIndicator() {
+  // Se já está mostrando indicador de foco, não fazer nada
+  if (currentIndicatorType === 'focus') {
+    return;
+  }
+  
+  // Remover qualquer indicador existente
   removeFocusIndicator();
+  
+  currentIndicatorType = 'focus';
   
   const indicator = document.createElement('div');
   indicator.id = 'focusgoals-indicator';
@@ -86,28 +95,10 @@ function showFocusIndicator() {
       font-weight: 600;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       cursor: default;
-      animation: focusgoals-slide-in 0.3s ease-out;
-    }
-    
-    @keyframes focusgoals-slide-in {
-      from {
-        transform: translateX(100px);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
     }
     
     .focusgoals-emergency {
       background: linear-gradient(135deg, #f59e0b, #ef4444);
-      animation: focusgoals-pulse 2s ease-in-out infinite;
-    }
-    
-    @keyframes focusgoals-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
     }
   `;
   
@@ -117,7 +108,16 @@ function showFocusIndicator() {
 
 // Mostrar indicador de modo emergência
 function showEmergencyIndicator(endTime) {
+  // Se já está mostrando emergência, só atualizar o tempo
+  if (currentIndicatorType === 'emergency') {
+    updateEmergencyTimer(endTime);
+    return;
+  }
+  
+  // Remover qualquer indicador existente
   removeFocusIndicator();
+  
+  currentIndicatorType = 'emergency';
   
   const indicator = document.createElement('div');
   indicator.id = 'focusgoals-indicator';
@@ -152,51 +152,54 @@ function showEmergencyIndicator(endTime) {
       font-weight: 600;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       cursor: default;
-      animation: focusgoals-slide-in 0.3s ease-out;
-    }
-    
-    @keyframes focusgoals-slide-in {
-      from {
-        transform: translateX(100px);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
     }
     
     .focusgoals-emergency {
       background: linear-gradient(135deg, #f59e0b, #ef4444);
-      animation: focusgoals-pulse 2s ease-in-out infinite;
-    }
-    
-    @keyframes focusgoals-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
     }
   `;
   
   document.head.appendChild(style);
   document.body.appendChild(indicator);
   
-  // Atualizar timer a cada segundo
-  const interval = setInterval(async () => {
+  // Iniciar atualização do timer
+  startEmergencyTimer(endTime);
+}
+
+// Atualizar timer de emergência (sem recriar o elemento)
+function updateEmergencyTimer(endTime) {
+  const badge = document.querySelector('.focusgoals-badge');
+  if (!badge) return;
+  
+  const timeLeft = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  
+  badge.textContent = `⚠️ Emergência: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+// Intervalo global para timer de emergência
+let emergencyTimerInterval = null;
+
+// Iniciar timer de emergência
+function startEmergencyTimer(endTime) {
+  // Limpar qualquer timer existente
+  if (emergencyTimerInterval) {
+    clearInterval(emergencyTimerInterval);
+  }
+  
+  // Atualizar a cada segundo
+  emergencyTimerInterval = setInterval(() => {
     const timeLeft = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
     
     if (timeLeft === 0) {
-      clearInterval(interval);
+      clearInterval(emergencyTimerInterval);
+      emergencyTimerInterval = null;
       removeFocusIndicator();
       return;
     }
     
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    
-    const badge = document.querySelector('.focusgoals-badge');
-    if (badge) {
-      badge.textContent = `⚠️ Emergência: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }
+    updateEmergencyTimer(endTime);
   }, 1000);
 }
 
@@ -207,6 +210,14 @@ function removeFocusIndicator() {
   
   if (indicator) indicator.remove();
   if (style) style.remove();
+  
+  // Limpar timer de emergência se existir
+  if (emergencyTimerInterval) {
+    clearInterval(emergencyTimerInterval);
+    emergencyTimerInterval = null;
+  }
+  
+  currentIndicatorType = null;
 }
 
 // Listener de mudanças no storage
