@@ -7,9 +7,35 @@ let stats = null;
 chrome.runtime.onInstalled.addListener(async () => {
   console.log('FocusGoals instalado!');
   await initializeDefaultSettings();
+  await requestHostPermissions();
   await loadData();
   setupAlarms();
 });
+
+// Inicialização quando browser inicia
+chrome.runtime.onStartup.addListener(async () => {
+  await loadData();
+  setupAlarms();
+});
+
+// Solicitar permissões de host na primeira vez
+async function requestHostPermissions() {
+  const hasPermission = await chrome.permissions.contains({
+    origins: ['<all_urls>']
+  });
+  
+  if (!hasPermission) {
+    console.log('Solicitando permissões de host...');
+    // Usuário verá popup de permissão na instalação
+    try {
+      await chrome.permissions.request({
+        origins: ['<all_urls>']
+      });
+    } catch (error) {
+      console.log('Usuário negou permissões de host');
+    }
+  }
+}
 
 // Garantir que settings padrão existam
 async function initializeDefaultSettings() {
@@ -36,11 +62,6 @@ async function initializeDefaultSettings() {
     console.log('Settings padrão criadas:', defaultSettings);
   }
 }
-// Inicialização quando browser inicia
-chrome.runtime.onStartup.addListener(async () => {
-  await loadData();
-  setupAlarms();
-});
 
 // Carregar dados do storage
 async function loadData() {
@@ -82,6 +103,42 @@ async function loadData() {
     streak: 0,
     history: []
   };
+}
+
+// Injetar content script em todas as abas quando timer inicia
+async function injectContentScripts() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    
+    for (const tab of tabs) {
+      // Não injetar em páginas internas do Chrome
+      if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content.js']
+          });
+        } catch (error) {
+          // Silenciosamente ignorar erros (algumas páginas não permitem injeção)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao injetar content scripts:', error);
+  }
+}
+
+// Remover content scripts quando timer para
+async function removeContentScripts() {
+  // O content script vai se auto-remover ao detectar que timer parou
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    try {
+      chrome.tabs.sendMessage(tab.id, { action: 'removeIndicator' });
+    } catch (error) {
+      // Ignorar erros
+    }
+  }
 }
 
 // Configurar alarmes
@@ -159,9 +216,12 @@ async function handleTimerComplete() {
     // Mudar para modo break E INICIAR AUTOMATICAMENTE
     timerState.mode = 'break';
     timerState.timeLeft = settings.breakDuration * 60;
-    timerState.isRunning = true; // CONTINUAR RODANDO
+    timerState.isRunning = true;
     timerState.isPaused = false;
-    timerState.startTime = Date.now(); // NOVO START TIME
+    timerState.startTime = Date.now();
+    
+    // Remover content scripts (não precisa mais bloquear)
+    await removeContentScripts();
   } else {
     // Terminou pausa
     await showNotification(
@@ -202,6 +262,9 @@ async function handleEmergencyEnd() {
       };
       
       await chrome.storage.local.set({ timerState });
+      
+      // Reinjetar content scripts
+      await injectContentScripts();
     }
     
     // Remover modo emergência
@@ -277,28 +340,17 @@ async function handleDailyReset() {
   await chrome.storage.local.set({ stats });
 }
 
-// Verificar se URL deve ser bloqueada
-function shouldBlockUrl(url) {
-  if (!timerState.isRunning || timerState.mode !== 'focus') {
-    return false;
-  }
-  
-  try {
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname.replace('www.', '');
-    
-    return settings.blockedSites.some(blocked => {
-      return hostname.includes(blocked) || blocked.includes(hostname);
-    });
-  } catch (e) {
-    return false;
-  }
-}
-
 // Listener de mensagens do popup
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'syncTimer') {
     await loadData();
+    
+    // Se timer acabou de iniciar em modo foco, injetar content scripts
+    if (timerState.isRunning && timerState.mode === 'focus') {
+      await injectContentScripts();
+    } else {
+      await removeContentScripts();
+    }
   }
   
   if (message.action === 'getState') {
@@ -306,6 +358,22 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   }
   
   return true;
+});
+
+// Listener para quando novas abas são criadas (injetar script se timer ativo)
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading' && timerState && timerState.isRunning && timerState.mode === 'focus') {
+    if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          files: ['content.js']
+        });
+      } catch (error) {
+        // Ignorar erros
+      }
+    }
+  }
 });
 
 // Atualizar ícone baseado no estado

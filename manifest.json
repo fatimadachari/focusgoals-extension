@@ -16,19 +16,15 @@
     "storage",
     "alarms",
     "notifications",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
-  "host_permissions": [
+  "optional_host_permissions": [
     "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [{
-    "matches": ["<all_urls>"],
-    "js": ["content.js"],
-    "run_at": "document_start"
-  }],
   "options_page": "options.html",
   "web_accessible_resources": [{
     "resources": ["blocked.html"],
