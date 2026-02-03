@@ -6,10 +6,36 @@ let stats = null;
 // Inicialização quando extensão é instalada/atualizada
 chrome.runtime.onInstalled.addListener(async () => {
   console.log('FocusGoals instalado!');
+  await initializeDefaultSettings();
   await loadData();
   setupAlarms();
 });
 
+// Garantir que settings padrão existam
+async function initializeDefaultSettings() {
+  const data = await chrome.storage.local.get(['settings']);
+  
+  if (!data.settings) {
+    const defaultSettings = {
+      focusDuration: 25,
+      breakDuration: 5,
+      dailyPomodoroGoal: 6,
+      dailyFocusGoal: 3,
+      blockedSites: [
+        'facebook.com',
+        'instagram.com',
+        'twitter.com',
+        'youtube.com',
+        'reddit.com',
+        'tiktok.com'
+      ],
+      soundEnabled: true
+    };
+    
+    await chrome.storage.local.set({ settings: defaultSettings });
+    console.log('Settings padrão criadas:', defaultSettings);
+  }
+}
 // Inicialização quando browser inicia
 chrome.runtime.onStartup.addListener(async () => {
   await loadData();
